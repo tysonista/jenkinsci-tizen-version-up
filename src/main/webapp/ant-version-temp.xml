@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="auto.version" default="test" >
+
+<!-- ===================================================================== 
+     - Global properties.  See the build.properties for information on 
+     ===================================================================== -->	
+	<property name="version.project.name" value="${PROJECT_NAME}"/>
+	<property name="version.branch.name" value="${BRANCH_NAME}"/>	
+
+<!-- ===================================================================== 
+     - after pulling the success patch-set (verified=+1) from gerrit server, execute reverse build.
+     ===================================================================== -->
+  <target name="test"  description="execute reverse build.">
+	<echo>GIT_SERVER_URL : ${GIT_SERVER_URL}</echo>
+	<echo>GIT_SERVER_PORT : ${GIT_SERVER_PORT}</echo>
+	<echo>GIT_PROJECT_NAME : ${GIT_PROJECT_NAME}</echo>
+	<echo>GIT_BRANCH_NAME : ${GIT_BRANCH_NAME}</echo>
+	<echo>PACKAGE_VERSION_RULE : ${PACKAGE_VERSION_RULE}</echo>
+  </target> 
+
+  
+</project>
