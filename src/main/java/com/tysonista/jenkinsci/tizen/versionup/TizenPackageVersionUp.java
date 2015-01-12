@@ -49,14 +49,16 @@ public class TizenPackageVersionUp extends Builder {
     private String gitPort;
     private String gitPath;
     private String gitBranch;
+    private String changeLog;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public TizenPackageVersionUp(String gitUrl, String gitPort, String gitPath, String gitBranch, String packageVersionRule) {
+    public TizenPackageVersionUp(String gitUrl, String gitPort, String gitPath, String gitBranch, String changeLog, String packageVersionRule) {
         this.gitUrl = gitUrl;
         this.gitPort = gitPort;
         this.gitPath = gitPath;
         this.gitBranch = gitBranch;
+        this.changeLog = changeLog;
         this.packageVersionRule = packageVersionRule;
     }
 
@@ -86,7 +88,8 @@ public class TizenPackageVersionUp extends Builder {
                     .append("GIT_SERVER_PORT=").append(gitPort).append("\n")
                     .append("GIT_PROJECT_NAME=").append(gitPath).append("\n")
                     .append("GIT_BRANCH_NAME=").append(gitBranch).append("\n")
-                    .append("PACKAGE_VERSION_RULE=").append(packageVersionRule);
+                    .append("PACKAGE_VERSION_RULE=").append(packageVersionRule).append("\n")
+                    .append("CHANGE_DATA=").append(changeLog);
 
         args.addKeyValuePairsFromPropertyString("-D", properties.toString(), vr, sensitiveVars);
 
@@ -192,11 +195,11 @@ public class TizenPackageVersionUp extends Builder {
          *      prevent the form from being saved. It just means that a message
          *      will be displayed to the user. 
          */
-        public FormValidation doCheckName(@QueryParameter String value)
+        public FormValidation doCheckGitUrl(@QueryParameter String gitUrl)
                 throws IOException, ServletException {
-            if (value.length() == 0)
+            if (gitUrl.length() == 0)
                 return FormValidation.error("Please set a name");
-            if (value.length() < 4)
+            if (gitUrl.length() < 4)
                 return FormValidation.warning("Isn't the name too short?");
             return FormValidation.ok();
         }

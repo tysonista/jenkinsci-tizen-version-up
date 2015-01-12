@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="auto.version" default="build.all" >
+
+<!-- ===================================================================== 
+     - Global properties.  See the build.properties for information on 
+     ===================================================================== -->
+	<property file="build-version.properties" />
+	
+		
+	<property name="version.server.url" value="${GIT_SERVER_URL}"/>
+	<property name="version.server.port" value="${GIT_SERVER_PORT}"/>
+	<property name="version.project.name" value="${GIT_PROJECT_NAME}"/>
+	<property name="version.branch.name" value="${GIT_BRANCH_NAME}"/>
+	<property name="version.change.data" value="${CHANGE_DATA}"/>
+	<property name="version.user.name" value="jenkins.ide"/>
+	<property name="version.key.path" value=".ssh/id_rsa"/>
+	<property name="version.package.path" value=""/>
+		
+	<property name="package.version.rule" value="${PACKAGE_VERSION_RULE}"/>
+	
+	<import file="script/ant-gerrit.xml" as="ant-gerrit" />
+    <import file="script/ant-git.xml" as="ant-git" />
+
+<!-- ===================================================================== 
+     - define script for build dependency.
+     ===================================================================== --> 
+  <script language="javascript">
+	var str = project.getProperty('GERRIT_PULL_URL');	
+	if( str != null){
+		var strArray = str.split('@');	
+		var username = strArray[0].split('//')[1];		
+		var hostArray = strArray[1].split('/')[0].split(':');		
+		var projectname = strArray[1].split(hostArray[1]+'/')[1];
+
+		project.setProperty('verify.project.name',projectname);	
+	}	
+	var refsNumber = project.getProperty('REFS');	
+	if( refsNumber != null){
+		var strArray = refsNumber.split('/');	
+		var changeno = strArray[strArray.length-2];		
+		project.setProperty('verify.change.no',changeno);	
+	}	
+	
+  </script>
+
+<!-- ===================================================================== 
+     - define taskdef : antcontrib lib => if, for , foreeach 
+     ===================================================================== -->
+  <taskdef resource="net/sf/antcontrib/antlib.xml" />
+  
+<!-- ===================================================================== 
+     - This is macro about property check.
+     ===================================================================== -->  
+  <macrodef name="prop-require-check">
+    <attribute name="prop"/>
+    <sequential>
+	  <echo> Change Input Data : ${@{prop}} </echo>
+      <fail message="Property &lt;@{prop}&gt; must be set!!!!!">
+        <condition>
+          <not>
+            <isset property="@{prop}"/>
+          </not>
+        </condition>
+      </fail>
+
+      <fail message="Property &lt;@{prop}&gt; must not be empty!!!!!">
+        <condition>
+          <equals arg1="${@{prop}}" arg2=""/>
+        </condition>
+      </fail>
+		
+	  <fail message="Property &lt;@{prop}&gt; must not be at least 10 characters.!!!!!">
+        <condition>
+           <length string="${@{prop}}" trim="true" when="less" length="10" />
+        </condition>
+      </fail>
+    </sequential>
+</macrodef>
+
+<!-- ===================================================================== 
+     - set parameter for build and packaging.
+     ===================================================================== --> 
+  <target name="build.set.parameter"  description="execute reverse build.">    	
+    <basename property="version.package.name" file="${version.project.name}"/>
+	<var name="gerrit.keyfile.path" unset="true"/>
+    <property name="gerrit.keyfile.path" value="${version.key.path}"/>	  
+    <var name="gerrit.host" unset="true"/>
+	<property name="gerrit.host" value="${version.server.url}"/>
+	<var name="gerrit.port" unset="true"/>
+	<property name="gerrit.port" value="${version.server.port}"/>
+	<var name="git.server.url" unset="true"/>
+	<property name="git.server.url" value="ssh://${version.user.name}@${version.server.url}:${version.server.port}/"/>
+	<var name="git.server.host" unset="true"/>
+	<property name="git.server.host" value="${version.server.url}"/>
+	<var name="git.server.port" unset="true"/>
+	<property name="git.server.port" value="${version.server.port}"/>
+	<var name="git.branch.name" unset="true"/>
+	<property name="git.branch.name" value="${version.branch.name}"/>
+	
+	<var name="gerrit.user.name" unset="true"/>
+	<property name="gerrit.user.name" value="${version.user.name}"/>
+	
+	<var name="version.package.path" unset="true"/>
+	<property name="version.package.path" value="${version.server.url}/${version.branch.name}/${version.package.name}"/>	
+  </target>
+  
+<!-- ===================================================================== 
+     - set parameter for build and packaging.
+     ===================================================================== --> 
+  <target name="check.change.input.data" description="execute reverse build.">    
+    <prop-require-check prop="CHANGE_DATA" />
+  </target>
+
+<!-- ===================================================================== 
+     - set parameter for build and packaging.
+     ===================================================================== --> 
+  <target name="create.commit.log.data" depends="build.set.parameter" description="execute reverse build.">
+    <echo> Create Commit Log - ${version.project.name} : ${version.package.name} : ${version.branch.name} </echo>
+	<delete file="commit-data" /> 
+    <!-- git clone -->
+    <antcall target="ant-git.git.clone">
+	  <param name="git.project.name" value="${version.project.name}"/>
+      <param name="git.branch.name" value="${version.branch.name}"/>		  
+	</antcall>
+	
+	<!-- Get Current Version Up Info -->
+	<get.version.no path="${version.package.path}/package/pkginfo.manifest" />
+	<echo> Current Version Info - ${package.version.no} </echo>
+		
+    <!-- Get chagne logs to ago time.-->
+	<antcallback target="ant-gerrit.get.change.log.data" return = "patchset.change.data.infos">
+	  <param name="project.name" value="${version.project.name}"/>
+	  <param name="branch.name" value="${version.branch.name}"/>
+	  <param name="ago.time" value="${package.version.ago.time}"/>
+	  <param name="last.commit.message" value="${patchset.commit.message.title.info}"/>
+	</antcallback>
+	
+	<!-- Get Last Updated Date to Current Version Up Patchset -->
+	<antcallback target="ant-gerrit.get.version.lastUpdate" return = "patchset.lastUpdate.info , patchset.commit.message.title.info">
+	  <param name="project.name" value="${version.project.name}"/>
+	  <param name="branch.name" value="${version.branch.name}"/>
+	  <param name="version.no" value="${package.version.no}"/>
+	</antcallback>		
+	<echo> Last Update Date And Message Title - ${patchset.lastUpdate.info} : ${patchset.commit.message.title.info} </echo>
+	
+	<!-- Get Ago time for gerrit query of change log.-->
+	<get.age.time.info last.time.ms="${patchset.lastUpdate.info}" />
+	<echo> Agot Time (minute time)- ${package.version.ago.time} </echo>
+	
+	<!-- Get chagne logs to ago time.-->
+	<antcallback target="ant-gerrit.get.change.log.data" return = "patchset.change.data.infos">
+	  <param name="project.name" value="${version.project.name}"/>
+	  <param name="branch.name" value="${version.branch.name}"/>
+	  <param name="ago.time" value="${package.version.ago.time}"/>
+	  <param name="last.commit.message" value="${patchset.commit.message.title.info}"/>
+	</antcallback>		
+	
+	<if>
+	  <equals arg1="${patchset.change.data.infos}" arg2="" />
+	  <then>
+		<echo> Change Log Data not exist.............</echo>
+		<echo file="commit-data" append="true">- The commit message &lt;${version.project.name}:${version.branch.name}&gt; does not exist!!!</echo>
+	  </then>
+	  <else>
+	    <for list="${patchset.change.data.infos}" param="change.log" delimiter="@+">
+		  <sequential>
+		    <echo> CCC - @{change.log} </echo>
+		    <echo file="commit-data" append="true">-@{change.log}${line.separator}</echo>
+		  </sequential>
+		</for>
+	  </else>
+	</if>
+	<echo> The commit message process end : ${version.project.name}:${version.branch.name}!!!!</echo>
+  </target>
+  
+<!-- ===================================================================== 
+     - after pulling the success patch-set (verified=+1) from gerrit server, execute reverse build.
+     ===================================================================== -->
+  <target name="process.package.version.input.data"  depends="check.change.input.data" description="execute reverse build.">
+	<trycatch property="isError" >
+	  <try>	    
+		<echo> Version Up Info - ${version.project.name} : ${version.package.name} : ${version.branch.name} </echo>
+        <!-- git clone -->
+       	<antcall target="ant-git.git.clone">
+		  <param name="git.project.name" value="${version.project.name}"/>
+		  <param name="git.branch.name" value="${version.branch.name}"/>		  
+		</antcall>
+		
+		<!-- Get Current Version Up Info -->
+		<get.version.no path="${version.package.path}/package/pkginfo.manifest" />
+		<echo> Current Version Info - ${package.version.no} : ${package.version.line} </echo>
+		
+		<!-- Set Change Version Up Info -->
+		<get.change.version.up current.version.no="${package.version.no}"  version.rule ="${package.version.rule}" />	    
+		<if>
+          <equals arg1="${version.change.version.no}" arg2="${package.version.no}" />
+          <then>
+           <fail message="Change Version Up Error - ${package.version.no} : ${package.version.rule}"  unless="false"/>  
+          </then>
+		  <else>
+		    <echo> Change Version - ${package.version.no} : ${version.change.version.no} : ${package.version.rule}</echo>
+		  </else>
+	    </if>
+		
+		<!-- Check Version Status : Status:Open -->
+		<antcallback target="ant-gerrit.check.version.status.open" return = "patchset.check.version.open.info">
+	      <param name="project.name" value="${version.project.name}"/>
+	      <param name="branch.name" value="${version.branch.name}"/>
+	      <param name="version.no" value="${version.change.version.no}"/>
+	    </antcallback>		
+		<echo> Status Open Check - ${patchset.check.version.open.info} : ${package.version.no} </echo>	
+		
+		<!-- Write change log data : chnagelog file -->
+		<tstamp> 
+          <format property="TODAY" pattern="yyyy-MM-dd" locale="en"/>
+	    </tstamp>
+		<loadfile property="file" srcfile="${version.package.path}/package/changelog"/>
+	 	<echo file="${version.package.path}/package/changelog" append="false">* ${version.change.version.no}${line.separator}</echo>	
+		
+		<for list="${version.change.data}" param="change.log" delimiter="${line.separator}">
+			<sequential>
+			  <echo> CCC - @{change.log} </echo>
+			  <echo file="${version.package.path}/package/changelog" append="true">- @{change.log}${line.separator}</echo>
+			</sequential>
+		</for>
+		
+		<echo file="${version.package.path}/package/changelog" append="true">== hyocheol.ahn &lt;hyocheol.ahn@samsung.com&gt; ${TODAY}${line.separator}</echo>
+	    <echo file="${version.package.path}/package/changelog" append="true">${file}</echo>
+		
+				
+	   <!-- Write new version : pkginfo.manifest -->
+		<echo> Change Package Version Up - ${package.version.line} : ${version.change.version.no}</echo>		
+		<replace file="${version.package.path}/package/pkginfo.manifest">
+		  <replacefilter token="${package.version.line}" value="Version:${version.change.version.no}" />
+	      <replacetoken>@token@</replacetoken>
+	      <replacevalue>value</replacevalue>
+	   </replace>
+	   
+	    <!-- Git Push to package version up -->
+		<antcall  target="ant-git.git.push.version.up" >
+		  <param name="git.project.name" value="${version.project.name}" />
+		  <param name="git.version.no" value="${version.change.version.no}" />
+		</antcall> 
+		
+	  </try>
+	  <catch>
+	    <echo> TTT : ${isError}</echo>
+		<delete dir="${version.package.path}" />
+		<fail message="Test Version Up End : ${isError} - [${version.package.name}]"  unless="false"/>	
+	  </catch>	  
+	</trycatch>
+  </target>
+  
+<!-- ===================================================================== 
+     - after pulling the success patch-set (verified=+1) from gerrit server, execute reverse build.
+     ===================================================================== -->
+  <target name="process.package.version"  description="execute reverse build.">
+	<trycatch property="isError" >
+	  <try>
+	    
+		<echo> Version Up Info - ${version.project.name} : ${version.package.name} : ${version.branch.name} </echo>
+        <!-- git clone -->
+       	<antcall target="ant-git.git.clone">
+		  <param name="git.project.name" value="${version.project.name}"/>
+		  <param name="git.branch.name" value="${version.branch.name}"/>		  
+		</antcall>
+		
+		<!-- Get Current Version Up Info -->
+		<get.version.no path="${version.package.path}/package/pkginfo.manifest" />
+		<echo> Current Version Info - ${package.version.no} : ${package.version.line} </echo>
+		
+		<!-- Set Change Version Up Info -->
+		<get.change.version.up current.version.no="${package.version.no}"  version.rule ="${package.version.rule}" />	    
+		<if>
+          <equals arg1="${version.change.version.no}" arg2="${package.version.no}" />
+          <then>
+           <fail message="Change Version Up Error - ${package.version.no} : ${package.version.rule}"  unless="false"/>  
+          </then>
+		  <else>
+		    <echo> Change Version - ${package.version.no} : ${version.change.version.no} : ${package.version.rule}</echo>
+		  </else>
+	    </if>
+		
+		<!-- Check Version Status : Status:Open -->
+		<antcallback target="ant-gerrit.check.version.status.open" return = "patchset.check.version.open.info">
+	      <param name="project.name" value="${version.project.name}"/>
+	      <param name="branch.name" value="${version.branch.name}"/>
+	      <param name="version.no" value="${version.change.version.no}"/>
+	    </antcallback>		
+		<echo> Status Open Check - ${patchset.check.version.open.info} : ${package.version.no} </echo>
+		
+		<!-- Get Last Updated Date to Current Version Up Patchset -->
+		<antcallback target="ant-gerrit.get.version.lastUpdate" return = "patchset.lastUpdate.info , patchset.commit.message.title.info">
+	      <param name="project.name" value="${version.project.name}"/>
+	      <param name="branch.name" value="${version.branch.name}"/>
+	      <param name="version.no" value="${package.version.no}"/>
+	    </antcallback>		
+		<echo> Last Update Date And Message Title - ${patchset.lastUpdate.info} : ${patchset.commit.message.title.info} </echo>
+		
+		<!-- Get Ago time for gerrit query of change log.-->
+		<get.age.time.info last.time.ms="${patchset.lastUpdate.info}" />
+	    <echo> Agot Time (minute time)- ${package.version.ago.time} </echo>
+		
+		<!-- Get chagne logs to ago time.-->
+		<antcallback target="ant-gerrit.get.change.log.data" return = "patchset.change.data.infos">
+	      <param name="project.name" value="${version.project.name}"/>
+	      <param name="branch.name" value="${version.branch.name}"/>
+	      <param name="ago.time" value="${package.version.ago.time}"/>
+		  <param name="last.commit.message" value="${patchset.commit.message.title.info}"/>
+	    </antcallback>		
+		
+		<if>
+          <equals arg1="${patchset.change.data.infos}" arg2="" />
+          <then>
+            <echo> Change Log Data not exist.............</echo>
+			<fail message="Change Log Data NOt Exist....[${version.package.name}]"  unless="false"/>	
+          </then>		  
+	    </if>
+		
+		<!-- Write change log data : chnagelog file -->
+		<tstamp> 
+          <format property="TODAY" pattern="yyyy-MM-dd" locale="en"/>
+	    </tstamp>
+		<loadfile property="file" srcfile="${version.package.path}/package/changelog"/>
+	 	<echo file="${version.package.path}/package/changelog" append="false">* ${version.change.version.no}${line.separator}</echo>	
+		
+		<for list="${patchset.change.data.infos}" param="change.log" delimiter="@+">
+			<sequential>
+			  <echo> CCC - @{change.log} </echo>
+			  <echo file="${version.package.path}/package/changelog" append="true">- @{change.log}${line.separator}</echo>
+			</sequential>
+		</for>
+		
+		<echo file="${version.package.path}/package/changelog" append="true">== hyocheol.ahn &lt;hyocheol.ahn@samsung.com&gt; ${TODAY}${line.separator}</echo>
+	    <echo file="${version.package.path}/package/changelog" append="true">${file}</echo>
+		
+		
+		<echo> ${version.package.path}/package/changelog</echo>
+		<echo> ${version.change.version.no}</echo>
+		
+	   <!-- Write new version : pkginfo.manifest -->
+		<echo> Change Package Version Up - ${package.version.line} : ${version.change.version.no}</echo>		
+		<replace file="${version.package.path}/package/pkginfo.manifest">
+		  <replacefilter token="${package.version.line}" value="Version:${version.change.version.no}" />
+	      <replacetoken>@token@</replacetoken>
+	      <replacevalue>value</replacevalue>
+	   </replace>
+	   
+	    <!-- Git Push to package version up-->
+		<antcall  target="ant-git.git.push.version.up" >
+		  <param name="git.project.name" value="${version.project.name}" />
+		  <param name="git.version.no" value="${version.change.version.no}" />
+		</antcall> 
+		
+	  </try>
+	  <catch>
+	    <echo> TTT : ${isError}</echo>
+		<delete dir="${version.package.path}" />
+		<fail message="Test Version Up End : ${isError} - [${version.package.name}]"  unless="false"/>	
+	  </catch>	  
+	</trycatch>
+  </target> 
+
+  <target name="test"  description="execute reverse build.">
+  	 
+	<echo> TTT : ${version.change.data} </echo>
+	
+   <prop-require-check prop="CHANGE_DATA" />
+  </target>
+  
+
+  
+  <scriptdef name="test.js" language="javascript">     
+      <attribute name="str"/>
+      importClass(java.io.File);
+      importClass(java.io.FileReader);
+      importClass(java.io.BufferedReader);
+      importClass(java.io.FileWriter);
+      importClass(java.io.BufferedWriter);
+	  
+	
+	 var test = "test ";
+     var testTrim = attributes.get('str').trim();
+	 var testHyo = test.trim();
+	 echo = project.createTask("echo");
+	echo.setMessage(" TEST JS : " + testTrim + "DDDD");
+	echo.perform();
+	
+	 echo = project.createTask("echo");
+	echo.setMessage(" TEST AS : " + testHyo + "DDDD");
+	echo.perform();
+  </scriptdef>  
+  
+  <scriptdef name="get.change.version.up" language="javascript">
+    <attribute name="current.version.no"/>
+	<attribute name="version.rule"/>
+	var strVersion = attributes.get('current.version.no')+"";
+	var arrVersion = strVersion.split('.');
+    var versionRule = attributes.get('version.rule');
+	var isError = 'false';
+	var changeVersion;
+	
+    if( versionRule == 'major' ){	 
+      arrVersion[0] = parseInt(arrVersion[0]) + 1;
+	}else if( versionRule == 'minor'){
+	  arrVersion[1] = parseInt(arrVersion[1]) + 1;
+	}else if( versionRule == 'patch'){
+	  arrVersion[2] = parseInt(arrVersion[2]) + 1;
+	}else{
+	  arrVersion[2] = parseInt(arrVersion[2]) + 1;
+	}
+	
+	if(isError == 'true'){
+	  changeVersion = strVersion;
+	}else{
+	  changeVersion = arrVersion[0] + "." + arrVersion[1] + "." + arrVersion[2] ;
+	}	
+	
+	project.setProperty('version.change.version.no',changeVersion);
+   
+  </scriptdef>
+  
+  <scriptdef name="get.commit.title.msg" language="javascript">
+    <attribute name="commit.msg"/>	
+    var arr = attributes.get('commit.msg').split('\n');
+	
+    if( arr == null || arr.length == '0' ){
+	  echo = project.createTask("echo");
+	  echo.setMessage("get.commit.title.msg error : commit message is empty.");
+	  echo.perform();	  
+	}
+	var commitMsg = arr[0].trim();
+	
+	echo = project.createTask("echo");
+	echo.setMessage("Commit Msg: " + arr[0] + " TTT : " + arr.length);
+	echo.perform();
+	project.setProperty('version.commit.message.title',commitMsg);
+   
+  </scriptdef>
+   <scriptdef name="get.age.time.info" language="javascript">
+     <attribute name="last.time.ms"/>
+	 echo = project.createTask("echo");
+	 echo.setMessage("==================Version Ago Hours================================");
+	 echo.perform();
+	 
+	 var lastMills = attributes.get('last.time.ms')+'000';
+	 var versionDate = new Date();
+	 versionDate.setTime(lastMills);
+
+	 var currentDate = new Date();
+	 
+	 echo = project.createTask("echo");
+	 echo.setMessage("versionDate : " + versionDate + " - currentDate : " + currentDate);
+	 echo.perform();
+	 
+	 var diffMills = currentDate - versionDate;	 
+	 var diffMinutes = parseInt((diffMills/(1000*60)));
+	 var agoMinuteTime = diffMinutes + 2;
+	 
+	 echo = project.createTask("echo");
+	 echo.setMessage("minutes ago time : " + diffMinutes + " agoMinuteTime :  " + agoMinuteTime );
+	 echo.perform(); 
+	 
+	 project.setProperty('package.version.ago.time',agoMinuteTime);
+	/*
+	 	  // each hour,minute,seconds  calculation.
+	 var milliseconds = parseInt((currentMills%1000)/100)
+     , seconds = parseInt((currentMills/1000)%60)
+     , minutes = parseInt((currentMills/(1000*60))%60)
+     , hours = parseInt((currentMills/(1000*60*60))%24)
+	 , day = parseInt((currentMills/(1000*60*60*24))%24);
+	 
+	 hours = (hours &lt; 10) ? "0" + hours : hours;
+	 minutes = (minutes &lt; 10) ? "0" + minutes : minutes;
+     seconds = (seconds &lt; 10) ? "0" + seconds : seconds;	
+	 
+	 // ago time calculation.
+	 var milliseconds = ((diffMills%1000))
+     , seconds = ((diffMills/1000))
+     , minutes = ((diffMills/(1000*60)))
+     , hours = ((diffMills/(1000*60*60)))
+	 , day = ((diffMills/(1000*60*60*24))%24);
+	 
+	 echo = project.createTask("echo");
+	 echo.setMessage("day : " + versionDate.getDate() +" hours : " + versionDate.getHours() + " minutes : " + versionDate.getMinutes() + " seconds : " + versionDate.getSeconds());
+	 echo.perform();
+	 
+	 echo = project.createTask("echo");
+	 echo.setMessage("day : " + versionDate.getDate() +" hours : " + versionDate.getHours() + " minutes : " + versionDate.getMinutes() + " seconds : " + versionDate.getSeconds());
+	 echo.perform();
+ 
+	 echo = project.createTask("echo");
+	 echo.setMessage("lastTime : " + lastTime + " lastMills : " + lastMills);
+	 echo.perform();
+	 */
+  </scriptdef>
+  
+   <scriptdef name="get.version.no" language="javascript">
+    <attribute name="path"/>  	
+    importClass(java.io.File);
+    importClass(java.io.FileReader);
+    importClass(java.io.BufferedReader);
+    importClass(java.io.FileWriter);
+    importClass(java.io.BufferedWriter);   
+       
+    var isDependency = 'false';
+    var pkgManifest = attributes.get('path');
+    var file = new File(pkgManifest);
+    fr = new FileReader(file);
+    br = new BufferedReader(fr);  
+    var versionNo = null;
+	var versionLine = null;
+    while(( line = br.readLine()) != null){     	
+      if(line.contains('Version')){
+        versionNo = line.substring(8);
+		versionLine = line;
+	    break;
+      }
+    }
+	project.setProperty('package.version.no',versionNo);	
+	project.setProperty('package.version.line',versionLine);	
+  </scriptdef>
+ <!--<target name="build.all" depends="build.set.parameter,process.package.version" description="Build and Packaging for all plugins in requested git"/>  -->
+ <target name="build.all" depends="build.set.parameter,process.package.version.input.data" description="Build and Packaging for all plugins in requested git"/>  
+ <target name="commit" depends="create.commit.log.data" description="Build and Packaging for all plugins in requested git"/>
+ 
+  
+  
+</project>

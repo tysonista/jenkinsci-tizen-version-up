@@ -16,7 +16,7 @@
   <packaging>hpi</packaging>
 
   <name>Tizen Package Version Up Plugin</name>
-  <url>https://github.com/tysonista/jenkinsci-tizen-package-version-up-plugin</url>
+  <url>https://github.com/tysonista/jenkinsci-tizen-package-version-up</url>
   <licenses>
     <license>
       <name>MIT License</name>
@@ -75,7 +75,7 @@ We support service as follows for jenkins job manager:
   	<url>http://www.s-core.co.kr/</url>
   </organization>
   <scm>
-  	<url>https://github.com/tysonista/jenkinsci-tizen-package-version-up-plugin</url>
+  	<url>https://github.com/tysonista/jenkinsci-tizen-package-version-up</url>
   	<developerConnection>Tysonista</developerConnection>
   	<tag>tizen</tag>
   </scm>

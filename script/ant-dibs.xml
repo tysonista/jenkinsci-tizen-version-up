@@ -1,0 +1,745 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="build.dibs" default="build.all" >
+
+<!-- ===================================================================== 
+     - Global properties.  See the build.properties for information on 
+     ===================================================================== -->
+  <property file="script/build-dibs.properties" />
+  <property name="dibs.download" value="download"/>
+  <property name="dibs.dir.name" value="tools"/>
+  <property name="dibs.build.result" value="build_result"/>  
+  <property name="dibs.build.root" value="${user.home}/temp/default"/>
+  <property name="dibs.pkg.root" value="../tools/dibs"/>  
+  <property name="dibs.pkg.url" value="${PKG_URL}"/>  
+  <property name="dibs.pkg.list.name" value="pkg_list_${TARGET_OS}"/>
+  <property name="dibs.target.os" value="${TARGET_OS}"/>
+  <property name="dibs.package.name" value="${PACKAGE_NAME}"/>  
+  <property name="dibs.refs.no" value="${REFS}"/>
+  <property name="dibs.reverse.change.list" value=""/>
+  
+  <property name="dibs.3.0.root" value="${user.home}/dibs3.0/dibs/plugins/org.tizen.cli-tools"/>
+  <property name="dibs.local.package" value="${user.home}/dibs3.0/dibs/local-package"/>
+  
+  <property name="req.package.name" value="${PACKAGE_NAME}"/>
+  
+  <property name="build.fail.message" value="" />
+  <property name="is.first.dependency.search" value="true"/>
+  <property name="is.dependency" value="false"/>
+  
+  <import file="ant-git.xml" as="ant-git" />
+  <import file="ant-gerrit.xml" as="ant-gerrit" />
+<!-- ===================================================================== 
+     - define taskdef : antcontrib lib => if, for , foreeach 
+     ===================================================================== -->
+  <taskdef resource="net/sf/antcontrib/antlib.xml" />	
+
+<!-- ===================================================================== 
+     - javascript taskdef : define download url for base-ide-product,base-ide-product-patch,pde-build
+     ===================================================================== --> 
+  <script language="javascript">
+	var str = project.getProperty('GERRIT_PULL_URL');
+	if( str != null){
+		var strArray = str.split('@');	
+		var username = strArray[0].split('//')[1];		
+		var hostArray = strArray[1].split('/')[0].split(':');		
+		var projectname = strArray[1].split(hostArray[1]+'/')[1];	
+		var hosturl = 'ssh://'+str.split('/')[2];	
+		var projectnameArray = projectname.split('/')
+		var requestpackagename = projectnameArray[projectnameArray.length-1];
+		
+		project.setProperty('dibs.package.name',requestpackagename);
+		
+	}
+  </script>
+  
+  <scriptdef name="pkgname.and.platform.list" language="javascript">
+   <attribute name="pkg.list.info"/>
+   <attribute name="download.package.name"/>
+   
+   importClass(java.io.File);
+   importClass(java.io.FileReader);
+   importClass(java.io.BufferedReader);
+   importClass(java.io.FileWriter);
+   importClass(java.io.BufferedWriter);        
+   
+   var pkglistinfo = attributes.get('pkg.list.info');
+   var downloadPackageName = attributes.get('download.package.name').trim();
+      
+   var file = new File(pkglistinfo);
+   fr = new FileReader(file);
+   br = new BufferedReader(fr);
+   
+   var line;
+   var linecount = 0;
+   var array = new Array();
+
+   while(( line = br.readLine()) != null){
+     	linecount++;
+     if(line.contains('Path')){
+
+	    if(line.contains(downloadPackageName)){
+	      var pathname = line.substring(15);
+	      var download = downloadPackageName + '_';	     
+	      if(pathname.substring(0,download.length) == download ){
+	        //echo = project.createTask("echo");
+	        //echo.setMessage("3333 downloadUrl  : " + line.substring(7) + " File : " + pathname +" download : " + download);
+	        //echo.perform();
+	        project.setProperty('downloadUrl',line.substring(7));
+	        project.setProperty('file',pathname);
+	      }
+	    //  echo = project.createTask("echo");
+	     // echo.setMessage("Path is : " + pathname);
+	     // echo.perform();
+	    }
+     }
+   }  
+  </scriptdef>
+  
+  <scriptdef name="get.search.dependency" language="javascript">
+    <attribute name="path"/>  	
+    importClass(java.io.File);
+    importClass(java.io.FileReader);
+    importClass(java.io.BufferedReader);
+    importClass(java.io.FileWriter);
+    importClass(java.io.BufferedWriter);   
+       
+    var isDependency = 'false';
+    var pkgManifest = attributes.get('path');
+    var file = new File(pkgManifest);
+    fr = new FileReader(file);
+    br = new BufferedReader(fr);  
+    var buildDependency;   
+    while(( line = br.readLine()) != null){     	
+      if(line.contains('Build-dependency')){
+        buildDependency = line.substring(17);      
+	    break;
+      }
+    }
+
+    var dependencyArr = new Array(); 
+    var srcSplit = buildDependency.split(',');	 
+    var isNotPackageList = project.getProperty('build.not.binary.package').trim().split(',');	
+	var arrayIsNotPackageList = new Array(project.getProperty('build.not.binary.package')) ;	
+
+    for( x in srcSplit){	    
+      var pkgSplit = srcSplit[x].trim().split(' ');	 
+	  var isEqual = "false";
+	  for( i in isNotPackageList) {
+	    var isNotPackage = isNotPackageList[i].trim();	   
+		if(pkgSplit[0].equals(isNotPackage)){
+		  isEqual = "true";
+		  break;
+        }
+	  }	  
+	  if(isEqual == "false"){
+	    arrayIsNotPackageList.push(pkgSplit[0]);
+        project.setProperty('build.not.binary.package' , arrayIsNotPackageList);       
+        dependencyArr.push(pkgSplit[0]);
+        isDependency = true;
+	  }
+    }
+	
+	var totalDependency = new Array();
+    var isOldDependency = project.getProperty('totalDependency');
+    if(isOldDependency != null){
+      totalDependency = dependencyArr.concat(new Array(isOldDependency));
+    }else{
+	  totalDependency = dependencyArr;
+	}
+	project.setProperty('buildDependency',dependencyArr);
+	project.setProperty('build.dependency.packages',totalDependency);
+    project.setProperty('is.dependency',isDependency);
+  </scriptdef>
+  
+  <scriptdef name="check.reverse.dependency" language="javascript">     
+    <attribute name="path"/>
+	<attribute name="check.package.name"/>
+    importClass(java.io.File);
+    importClass(java.io.FileReader);
+    importClass(java.io.BufferedReader);
+    importClass(java.io.FileWriter);
+    importClass(java.io.BufferedWriter);   
+    
+    var isReverseDependency = 'false';
+    var pkgManifest = attributes.get('path');
+	var checkPackageName = attributes.get('check.package.name');
+    var file = new File(pkgManifest);
+    fr = new FileReader(file);
+    br = new BufferedReader(fr);  
+    var buildDependency;   
+    while(( line = br.readLine()) != null){     	
+      if(line.contains('Build-dependency')){
+        buildDependency = line.substring(17);      
+	    break;
+      }
+    }
+	
+	var srcSplit = buildDependency.split(',');	 
+	
+	for( x in srcSplit){	    
+      var pkgSplit = srcSplit[x].trim().split(' ');	 	 
+	  if(pkgSplit[0].equals(checkPackageName)){
+	    isReverseDependency = 'true';
+	  }	 
+    }
+	
+    project.setProperty('is.reverse.dependency',isReverseDependency);	
+  </scriptdef>
+
+  <scriptdef name="check.package.version" language="javascript">     
+    <attribute name="local.name"/>
+	<attribute name="remote.name"/>
+	var isCheckVersion = 'false'
+	var localname = attributes.get('local.name');
+	var remotename = attributes.get('remote.name');
+    
+	if(localname.equals(remotename)){
+	    isCheckVersion = 'true';
+	}
+	
+    project.setProperty('is.check.version',isCheckVersion);	
+  </scriptdef>  
+<!-- ===================================================================== 
+     - This is macro about executable commands.
+     ===================================================================== -->  
+  <macrodef name = "dibsCommand">
+    <attribute name = "command" />
+    <attribute name = "dir" default = "" />
+    <element name = "args" optional = "true" />
+    <sequential>
+      <echo message = "dibsCommand : @{command}" />
+      <exec executable = "ruby" dir = "@{dir}" failonerror = "true">
+        <arg value = "@{command}" />
+        <args/>
+      </exec>
+    </sequential>
+  </macrodef>
+
+<!-- ===================================================================== 
+     - This is macro about executable commands.
+     ===================================================================== -->  
+  <macrodef name = "dibsCommand3.0">
+    <attribute name = "command" />
+    <attribute name = "dir" default = "" />
+    <element name = "args" optional = "true" />
+    <sequential>
+      <echo message = "dibsCommand : @{command}" />
+      <exec executable = "bash" dir = "@{dir}" failonerror = "true">
+        <arg value = "@{command}" />
+        <args/>
+      </exec>
+    </sequential>
+  </macrodef>
+  
+<!-- ===================================================================== 
+     - This is macro about clean of directory.
+     ===================================================================== -->  
+  <macrodef name = "dibs.clean">  
+	<attribute name = "dibs.package.name" />
+	<sequential>      
+      <delete dir="@{dibs.package.name}/${dibs.build.result}" />	
+	</sequential>
+  </macrodef>
+
+<!-- ===================================================================== 
+     - This is macro about clean of directory.
+     ===================================================================== -->  
+  <macrodef name = "dibs.init">
+	<attribute name = "dibs.package.name" />
+	<sequential>
+      <mkdir dir="@{dibs.package.name}/${dibs.build.result}" />
+	</sequential>
+  </macrodef>
+
+<!-- ===================================================================== 
+     - get the property of build order for package build.
+     ===================================================================== -->  
+  <macrodef name="get.git.project.name">
+    <attribute name="name"/>
+    <attribute name="from"/>
+    <sequential>
+	  <var name="@{name}" unset="true"/>
+      <property name="@{name}" value="${@{from}}"/>
+    </sequential>
+  </macrodef>
+  
+<!-- ===================================================================== 
+     - install to dibs environment.
+     ===================================================================== -->	
+  <target name="install.dibs" >
+     <if>
+        <available file="${dibs.dir.name}" type="dir"/>
+        <then>
+          <echo> dibs local tools exist. </echo>
+        </then>
+        <else>
+          <echo> dibs local tools not exist. : install start </echo>
+		  <mkdir dir="${dibs.download}" />	
+		  <get src="${dibs.pkg.url}/${dibs.pkg.list.name}" dest="${dibs.download}/${dibs.pkg.list.name}" />    
+		  <pkgname.and.platform.list pkg.list.info="${dibs.download}/${dibs.pkg.list.name}" download.package.name="dibs"/>    
+		  <get src="${dibs.pkg.url}${downloadUrl}" dest="${dibs.download}/${file}" />
+		
+		  <unzip dest="${dibs.download}">
+		    <fileset dir="${dibs.download}">
+			  <include name="**/${file}" />
+		    </fileset>
+		  </unzip>
+		  <copy todir=".">
+			<fileset dir="${dibs.download}/data" erroronmissingdir="false" />                
+		  </copy>
+		  <delete dir="${dibs.download}" />
+        </else>
+    </if>	
+  </target> 
+
+
+<!-- ===================================================================== 
+     - install to dibs environment.
+     ===================================================================== -->	
+  <target name="pre.local.package" >    
+    <mkdir dir="${dibs.local.package}" />
+	<mkdir dir="${dibs.download}" />
+	<get src="${dibs.pkg.url}/${dibs.pkg.list.name}" dest="${dibs.download}/${dibs.pkg.list.name}" />
+	<delete>
+	  <fileset dir="${dibs.local.package}" excludes="base-*.zip, pde-build*.zip, tpklib*.zip, sbilib*.zip "/>
+	</delete>
+	
+	<for list="${dibs.pre.local.package}" param="fileName" delimiter=",">
+        <sequential>
+		  <pkgname.and.platform.list pkg.list.info="${dibs.download}/${dibs.pkg.list.name}" download.package.name="@{fileName}"/>          
+		  <var name = "local.package.name" unset="true" />		 
+		  <fileset dir="${dibs.local.package}" id="fileId" >
+            <include name="@{fileName}*.zip"/>
+          </fileset>	      
+	      <property name="local.package.name" refid="fileId" />
+	      <check.package.version local.name="${local.package.name}" remote.name="${file}" />
+		  <if>
+            <equals arg1="${is.check.version}" arg2="true" />
+            <then>
+              <echo> HHHH : ${file} exist</echo>         
+            </then>
+		    <else>
+		      <echo> HHHH : ${file} not exist</echo>
+			  <delete file="${dibs.local.package}/${local.package.name}" />
+			  <get src="${dibs.pkg.url}${downloadUrl}" dest="${dibs.local.package}/${file}" />
+		    </else>
+          </if>		  
+        </sequential>
+    </for>     
+	<delete dir="${dibs.download}" />
+	<delete dir="${dibs.build.root}" />
+  </target>
+  
+  <!-- ===================================================================== 
+     - remove base-ide-product in .build_tools/builder/default/buildroot
+     ===================================================================== -->
+  <target name="dibs.buildroot.clean" depends="install.dibs" description="remove base-ide-product in .build_tools/builder/default/buildroot" >    
+	<dibsCommand command = "${dibs.pkg.root}/pkg-cli" dir = "tools">
+		  <args>
+		    <arg value="clean" />
+		    <arg value="-l" />
+			<arg value="${dibs.build.root}" />
+			<arg value="--force" />
+		  </args>
+	</dibsCommand>
+	<echo> dibs.buildroot.clean - [${dibs.build.root}] : [${dibs.target.os}] </echo>
+  </target>
+
+  <!-- ===================================================================== 
+     - build and packaging to request package.
+     ===================================================================== -->
+  <target name="dibs.build" depends="install.dibs" description="build and packaging to request package." >    
+    <dibsCommand command = "${dibs.pkg.root}/pkg-build" dir = "${dibs.package.name}">
+	  <args>
+	    <arg value="-u" />
+		<arg value="${dibs.pkg.url}" />
+		<arg value="-o" />
+		<arg value="${dibs.target.os}" />			
+	  </args>
+	</dibsCommand>
+	<echo> dibs.build - [${dibs.pkg.url}] : [${dibs.target.os}] </echo>
+  </target>
+
+  <!-- ===================================================================== 
+     - build and packaging to request package.
+     ===================================================================== -->
+  <target name="dibs.build3.0" depends="install.dibs" description="build and packaging to request package." >    
+    <dibsCommand command = "${dibs.3.0.root}/pkg-build" dir = "${dibs.package.name}">
+	  <args>
+	    <arg value="-u" />
+		<arg value="${dibs.pkg.url}" />
+		<arg value="-d" />
+		<arg value="${dibs.local.package}" />
+		<arg value="-o" />
+		<arg value="${dibs.target.os}" />
+		<arg value="-c" />
+	  </args>
+	</dibsCommand>
+	<echo> dibs.3.0.build - [${dibs.3.0.root}] : [${dibs.target.os}] </echo>
+  </target>
+  
+  <!-- ===================================================================== 
+     - install to request package.
+     ===================================================================== -->
+  <target name="dibs.install" depends="install.dibs" description="install to request package." >    
+    <dibsCommand command = "${dibs.pkg.root}/pkg-cli" dir = "${dibs.package.name}">
+	  <args>
+	    <arg value="install-file" />
+		<arg value="-P" />
+		<arg value="${install.package.zip}" />
+		<arg value="-l" />
+		<arg value="${dibs.build.root}" />
+		<arg value="-f" />
+      </args>
+	</dibsCommand>
+	<echo> dibs.install - [${install.package.zip}] : [${dibs.build.root}] </echo>
+  </target>
+  
+  <!-- ===================================================================== 
+     - uninstall to request package.
+     ===================================================================== -->
+  <target name="dibs.uninstall" depends="install.dibs" description="uninstall to request package." >    
+	<dibsCommand command = "${dibs.pkg.root}/pkg-cli" dir = "${dibs.package.name}">
+		  <args>
+		    <arg value="uninstall" />
+		    <arg value="-P" />
+		    <arg value="${dibs.package.name}" />
+		    <arg value="-l" />
+			<arg value="${dibs.build.root}" />
+		  </args>
+	</dibsCommand>
+	<echo> dibs.uninstall - [${dibs.package.name}] : [${dibs.build.root}] </echo>
+  </target>
+
+<!-- ===================================================================== 
+     - execute package build process.
+     ===================================================================== -->  
+  <target name="package.build.install" description="execute Product Ant Builder..." >	
+	<trycatch property="isError" >
+	  <try>
+	    <if>
+          <isset property="build.package.name"/>
+          <then>
+            <var name="dibs.package.name" value="${build.package.name}"/>
+          </then>
+        </if>
+	    
+		<dibs.clean dibs.package.name="${dibs.package.name}" />
+		<dibs.init dibs.package.name="${dibs.package.name}" />
+		
+		<var name="build.phase.check" value="dibs.package.build" />		
+		<antcall target="dibs.build3.0">
+			<param name="dibs.package.name" value="${dibs.package.name}"/>
+			<param name="dibs.target.os" value="${dibs.target.os}"/>
+		</antcall>	   
+		
+		<var name="build.phase.check" value="dibs.package.install" />
+		<fileset dir="${dibs.package.name}" id="fileId" >
+		  <include name="${dibs.package.name}_*.zip"/>
+		</fileset>
+		<property name="install.package.name" refid="fileId" />
+		
+		<copy tofile="${dibs.local.package}/${install.package.name}">
+	      <fileset dir="${dibs.package.name}" includes="${install.package.name}" erroronmissingdir="false" />                
+	    </copy>
+        <if>
+          <equals arg1="${is.patchset.build}" arg2="true" />
+          <then>
+            <antcall target="dibs.install">
+			  <param name="dibs.package.name" value="${dibs.package.name}"/>
+			  <param name="install.package.zip" value="${install.package.name}"/>
+		    </antcall>	
+          </then>
+	    </if>
+        <echo> Package Build Complete - [${dibs.package.name}] : [${dibs.target.os}] </echo>		
+	  </try>
+	  <catch>		
+		<var name="build.fail.message" unset="true" />
+		<property name="build.fail.message" value="The package build error in phase of [${build.phase.check}] for ${dibs.package.name}" />
+        <var name="build.error" unset="true" />
+		<property name="build.error" value="true" />
+	  </catch>
+	</trycatch>
+  </target>	
+
+<!-- ===================================================================== 
+     - execute package build process.
+     ===================================================================== -->  
+  <target name="process.dependency.build" depends="install.dibs" description="execute Product Ant Builder..." >	
+	<trycatch property="isError" >
+	  <try>	    		
+		<echo> Dependency Package : ${build.dependency.packages} </echo>		
+	    <for list="${build.dependency.packages}" param="dir.package.name" delimiter=",">
+          <sequential>
+		    <get.git.project.name name="patch.project.name" from="@{dir.package.name}" />
+			
+		    <antcallback  target="git.pull.success.patchset" return="build.error, build.fail.message">
+			  <param name="pull.package.name" value="@{dir.package.name}"/>
+		    </antcallback>
+			<if>
+		      <equals arg1="${build.error}" arg2="true" />
+              <then>
+                <fail message="${build.fail.message}"  unless="false"/>
+              </then>
+	        </if>
+			
+			<antcallback  target="package.build.install" return="build.error, build.fail.message" >
+			  <param name="build.package.name" value="@{dir.package.name}"/>
+			  <param name="is.patchset.build" value="false"/>
+			</antcallback>
+			<if>
+		      <equals arg1="${build.error}" arg2="true" />
+              <then>
+                <fail message="${build.fail.message}"  unless="false"/>
+              </then>
+	        </if>
+		  </sequential>	  
+	    </for>
+	  </try>
+	  <catch> 
+		<if>
+		  <equals arg1="${build.error}" arg2="true" />
+          <then>		    
+            <fail message="${build.fail.message}"  unless="false"/>
+          </then>
+	    </if>		
+		<fail message="${isError}"  unless="false"/>
+	  </catch>
+	</trycatch>
+  </target>
+
+<!-- ===================================================================== 
+     - execute package build process.
+     ===================================================================== -->  
+  <target name="process.patchset.build" depends="install.dibs" description="execute Product Ant Builder..." >	
+	<trycatch property="isError" >
+	  <try>	    		
+		
+		<if>
+          <isset property="patchset.package.name"/>
+          <then>
+		    <var name="dibs.package.name" unset="true"/>
+            <var name="dibs.package.name" value="${patchset.package.name}"/>
+          </then>
+        </if>
+		<echo> Patchset Build : ${dibs.package.name} : ${patchset.refs.no}</echo>
+		<get.git.project.name name="patch.project.name" from="${dibs.package.name}" />
+		
+        <antcall target="git.pull">
+		  <param name="git.project.name" value="${patch.project.name}" />
+		  <param name="git.refs.no" value="${patchset.refs.no}"/>			
+		</antcall>		
+				
+		<antcallback  target="package.build.install" return="build.error, build.fail.message" >
+		  <param name="build.package.name" value="${dibs.package.name}"/>
+		  <param name="is.patchset.build" value="true"/>
+		</antcallback> 
+		
+		<if>
+		  <equals arg1="${build.error}" arg2="true" />
+          <then>
+            <fail message="${build.fail.message}"  unless="false"/>
+          </then>
+	    </if>		  
+	  </try>
+	  <catch> 
+		<if>
+		  <equals arg1="${build.error}" arg2="true" />
+          <then>		    
+            <fail message="${build.fail.message}"  unless="false"/>
+          </then>
+	    </if>		
+		<fail message="${isError}"  unless="false"/>
+	  </catch>
+	</trycatch>
+  </target>
+  
+<!-- ===================================================================== 
+     - execute package build process.
+     ===================================================================== -->  
+  <target name="process.checkout" depends="install.dibs" description="execute Product Ant Builder..." >	
+	<trycatch property="isError" >
+	  <try>	    
+		<echo> Packages Checkout : ${check.out.packages}</echo>
+	    <for list="${check.out.packages}" param="dir.package.name" delimiter=",">
+          <sequential>
+		    <get.git.project.name name="patch.project.name" from="@{dir.package.name}" />		
+			
+			<antcall  target="ant-git.git.checkout" >
+			  <param name="git.project.name" value="${patch.project.name}" />
+			</antcall> 
+		
+		  </sequential>	  
+	    </for>
+	  </try>
+	  <catch> 		
+		<fail message="Git Checkout error in phase for ${patch.project.name}"  unless="false"/>
+	  </catch>
+	</trycatch>
+  </target>
+
+<!-- ===================================================================== 
+     - call git.rest task for patchset reset.
+     ===================================================================== -->  
+  <target name="process.reset" depends="install.dibs" description="execute Product Ant Builder..." >	
+	<trycatch property="isError" >
+	  <try>	    
+		<echo> Packages Reset : ${check.out.packages} : ${check.out.branch}</echo>
+	    <for list="${check.out.packages}" param="dir.package.name" delimiter=",">
+          <sequential>
+		    <get.git.project.name name="patch.project.name" from="@{dir.package.name}" />		
+			
+			<antcall  target="ant-git.git.reset" >
+			  <param name="git.project.name" value="${patch.project.name}" />			  
+			</antcall> 
+		
+		  </sequential>	  
+	    </for>
+	  </try>
+	  <catch> 		
+		<fail message="Git Reset error in phase for ${patch.project.name}"  unless="false"/>
+	  </catch>
+	</trycatch>
+  </target>	
+  
+<!-- ===================================================================== 
+     - execute package build process.
+     ===================================================================== -->  
+  <target name="git.pull.success.patchset" description="execute Product Ant Builder..." >	
+	<trycatch property="isError" >
+	  <try>
+		<get.git.project.name name="pull.project.name" from="${pull.package.name}" />
+		
+		<var name="build.phase.check" unset="true" />		
+		<var name="build.phase.check" value="get.change.number.list" />	
+		
+		<antcallback target="ant-gerrit.get.change.number.list" return = "gerrit.change.number.list">          
+		  <param name="verified.value" value="+1" />
+		  <param name="project.name" value="${pull.project.name}" />
+		</antcallback>
+		
+		<for list="${gerrit.change.number.list}" param="success.change.number" delimiter=",">
+		  <sequential>
+		    <var name="build.phase.check" value="get.patchset.infos[@{success.change.number}]" />	
+			<antcallback target="ant-gerrit.get.patchset.infos" return = "patchset.refs.info,patchset.revision.info,patchset.junit.list.info">
+			  <param name="change.number" value="@{success.change.number}"/>
+			</antcallback>					
+			
+			<var name="build.phase.check" value="git.pull.patchset[@{success.change.number}]" />	
+			<antcall target="ant-git.git.pull">
+			  <param name="git.project.name" value="${pull.project.name}" />
+			  <param name="git.refs.no" value="${patchset.refs.info}"/>			
+			</antcall>					
+		  </sequential>
+		</for>		
+	  </try>
+	  <catch>
+	    <var name="build.fail.message" unset="true" />
+		<property name="build.fail.message" value="Git pull error in phase of [${build.phase.check}] for ${pull.package.name}" />
+        <var name="build.error" unset="true" />
+		<property name="build.error" value="true" />		
+	  </catch>
+	</trycatch>
+  </target>
+
+
+<!-- ===================================================================== 
+     - searches for reverse build dependencies to the target package.
+     ===================================================================== -->
+  <target name="search.dependency"  description="searches for reverse build dependencies to the target package.">
+    <trycatch property="isError" >
+	  <try>
+        <if>
+          <equals arg1="${is.first.dependency.search}" arg2="true" />
+          <then>
+			<get.git.project.name name="search.project.name" from="${search.package.name}" />
+            <echo> The Package Dependency Search for ${search.package.name} : ${search.project.name} </echo>
+            <antcall target="ant-git.git.clone">
+			  <param name="git.project.name" value="${search.project.name}"/>
+			</antcall>			
+			<get.search.dependency path="${search.package.name}/package/pkginfo.manifest" />				
+			<var name="is.first.dependency.search" unset="true"/>
+			<property name="is.first.dependency.search" value="false"/>		
+		  </then>
+		<elseif>
+		  <equals arg1="${is.dependency}" arg2="true" />
+		  <then>	    
+		    <var name="is.dependency" unset="true"/>
+			<property name="is.dependency" value="false"/>
+			<for list="${buildDependency}" param="path" delimiter=",">
+			  <sequential>
+				<get.git.project.name name="search.project.name" from="@{path}" />
+			    <antcall target="ant-git.git.clone">
+				  <param name="git.project.name" value="${search.project.name}"/>			
+				</antcall>
+				<get.search.dependency path="@{path}/package/pkginfo.manifest" />			
+			  </sequential>
+			</for>
+		  </then>
+		</elseif>
+		</if>
+		<antcall target="check.dependency" />
+	  </try>
+	  <catch>			
+	    <fail message="The search package dependency error in ${search.package.name}:${isError}"  unless="false"/>
+	  </catch>
+	</trycatch>
+  </target>
+
+<!-- ===================================================================== 
+     - check whether or not is the reverse build dependencies.
+     ===================================================================== -->
+  <target name="check.dependency"  description="check whether or not is the reverse build dependencies.">
+  	<if>
+    <equals arg1="${is.dependency}" arg2="true" />
+      <then>        
+        <antcall target="search.dependency" />
+       </then>
+	<else>	
+      <echo> Search Package Dependency for ${search.package.name} End </echo>	 
+    </else>
+    </if>
+  </target>
+
+<!-- ===================================================================== 
+     - check whether or not is the reverse build dependencies.
+     ===================================================================== -->
+  <target name="get.reverse.change.no.list"  description="check whether or not is the reverse build dependencies.">
+  	<for param="dir">
+      <path>
+        <dirset dir="." includes="*" excludes="build_result, tools , script , result" />
+      </path>
+	  <sequential>
+	    <var name="dir.package.name" unset="true" />
+	    <basename property="dir.package.name" file="@{dir}"/>	
+		
+		<check.reverse.dependency path="${dir.package.name}/package/pkginfo.manifest" check.package.name="${reverse.package.name}" />	
+        <echo> Reverse Build Package [${reverse.package.name}] - ${dir.package.name} : ${is.reverse.dependency}</echo>		
+		<if>
+          <equals arg1="${is.reverse.dependency}" arg2="true" />
+          <then>		   
+			<get.git.project.name name="search.project.name" from="${dir.package.name}" />
+			<echo> Reverse Build Package [${reverse.package.name} - ${search.project.name} </echo>
+			<antcallback target="ant-gerrit.get.change.number.list" return = "gerrit.change.number.list">          
+		      <param name="verified.value" value="-1" />
+		      <param name="project.name" value="${search.project.name}" />
+		    </antcallback>
+			
+			<var name="dibs.reverse.change.list" value="${dibs.reverse.change.list},${gerrit.change.number.list}"/>
+			<echo> [${reverse.package.name} Change No List - ${search.project.name} - ${dibs.reverse.change.list}</echo>
+          </then>
+	    </if>
+	  </sequential>
+	</for>
+  </target> 
+
+  <!-- ===================================================================== 
+     - build and packaging to request package.
+     ===================================================================== -->
+  <target name="test" depends="install.dibs" description="build and packaging to request package." >    
+    
+	<echo> dibs.build - [${search.package.name}] </echo>
+	<get.git.project.name name="patch.project.name" from="${search.package.name}" />
+	<echo> TTTTTTTTTTT - [${patch.project.name}] </echo>
+  </target>
+</project>

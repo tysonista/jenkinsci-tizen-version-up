@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="build.git" default="build.all" >
+
+<!-- ===================================================================== 
+     - Global properties.  See the build.properties for information on 
+     ===================================================================== -->
+  <property name="git.project.name" value=""/>  
+  <property name="git.server.url" value=""/>
+  <property name="git.server.host" value=""/>
+  <property name="git.server.port" value=""/>
+  <property name="git.branch.name" value="${BRANCH_NAME}"/>
+  <property name="git.refs.no" value="${REFS}"/>
+  
+
+<!-- ===================================================================== 
+     - define script for build dependency.
+     ===================================================================== --> 
+  <script language="javascript">
+	var str = project.getProperty('GERRIT_PULL_URL');
+	if( str != null){
+		var strArray = str.split('@');	
+		var username = strArray[0].split('//')[1];		
+		var hostArray = strArray[1].split('/')[0].split(':');		
+		var projectname = strArray[1].split(hostArray[1]+'/')[1];	
+		var hosturl = 'ssh://'+str.split('/')[2]+"/";	
+		
+		project.setProperty('git.server.url',hosturl);		
+		project.setProperty('git.server.port',hostArray[1]);
+		project.setProperty('git.project.name',projectname);		
+		project.setProperty('git.branch.name',project.getProperty('BRANCH_NAME'));
+	}	
+  </script>
+
+<!-- ===================================================================== 
+     - define taskdef : antcontrib lib => if, for , foreeach 
+     ===================================================================== -->
+  <taskdef resource="net/sf/antcontrib/antlib.xml" />	
+
+<!-- ===================================================================== 
+     - This is macro about git commands.
+     ===================================================================== -->  
+  <macrodef name = "git">
+    <attribute name = "command" />
+    <attribute name = "dir" default = "" />
+    <element name = "args" optional = "true" />
+    <sequential>
+      <echo message = "git @{command}" />
+      <exec executable = "git" dir = "@{dir}" failonerror = "true">
+        <arg value = "@{command}" />
+        <args/>
+      </exec>
+    </sequential>
+  </macrodef>
+
+<!-- ===================================================================== 
+     - git clone & pull for package.
+     ===================================================================== -->
+  <target name="git.clone" description="git clone and pull for package.">	
+	<basename property="git.package.name" file="${git.project.name}"/>
+	<var name="git.package.path" unset="true"/>
+	<property name="git.package.path" value="${git.server.host}/${git.branch.name}/${git.package.name}"/>
+	
+	<echo> AAAAAAAAAAAAA : ${git.package.path}</echo>
+    <if>
+        <available file="${git.package.path}" type="dir"/>
+        <then>          
+		  <echo> ${git.server.url}:${git.project.name}:${git.branch.name} exist. : git pull start</echo>
+		  <git command = "checkout" dir = "${git.package.path}" >
+	          <args>
+	            <arg value = "${git.branch.name}" />
+	          </args>
+          </git>
+		  <git command = "reset" dir = "${git.package.path}" >
+	        <args>
+			  <arg value = "--hard" />
+	          <arg value = "origin/${git.branch.name}" />
+	        </args>
+          </git>
+          <git command = "pull" dir = "${git.package.path}" />		  
+        </then>
+        <else>
+		  <echo> ${git.server.url}:${git.project.name}:${git.branch.name} not exist. : git clone start  </echo>
+		  <var name="git.base.path" unset="true"/>
+	      <property name="git.base.path" value="${git.server.host}/${git.branch.name}"/>
+		  <mkdir dir="${git.base.path}" /> 
+          <git command = "clone" dir = "${git.base.path}" >
+	          <args>
+	            <arg value = "${git.server.url}${git.project.name}" />
+	            <arg value = "-b" />
+	            <arg value = "${git.branch.name}" />
+	          </args>
+          </git>
+        </else>
+    </if>
+  </target>
+
+ <!-- ===================================================================== 
+     - git pull for patchset.
+     ===================================================================== -->
+  <target name="git.pull" description="git pull for patchset.">
+	<basename property="git.package.name" file="${git.project.name}"/>
+	<var name="git.package.path" unset="true"/>
+	<property name="git.package.path" value="${git.server.host}/${git.branch.name}/${git.package.name}"/>
+	<echo> git pull : ${git.server.url}:${git.project.name}:${git.package.name}:${git.refs.no} </echo>
+    <if>
+        <available file="${git.package.path}" type="dir"/>
+        <then>		  
+		  <git command = "pull" dir = "${git.package.path}">
+	          <args>
+	            <arg value = "${git.server.url}${git.project.name}" />
+				<arg value = "${git.refs.no}" />	           
+	          </args>
+          </git>		 
+        </then>
+        <else>
+		  <fail message="Git Pull Patchset Error : ${git.project.name} is not exist."  unless="true"/>       
+        </else>
+    </if>
+  </target>
+
+ <!-- ===================================================================== 
+     - git pull for patchset.
+     ===================================================================== -->
+  <target name="git.checkout" description="git pull for patchset.">
+	<basename property="git.package.name" file="${git.project.name}"/>
+	<var name="git.package.path" unset="true"/>
+	<property name="git.package.path" value="${git.server.host}/${git.branch.name}/${git.package.name}"/>
+    <if>
+        <available file="${git.package.path}" type="dir"/>
+        <then>
+		  <echo> git checkout : ${git.package.name}:${git.branch.name} </echo>
+		  <git command = "checkout" dir = "${git.package.path}" >
+	        <args>
+	          <arg value = "origin/${git.branch.name}" />
+	        </args>
+          </git> 
+        </then>
+        <else>
+		  <fail message="Git Checkout Error : ${git.package.name} is not exist."  unless="true"/>       
+        </else>
+    </if>
+  </target>
+
+ <!-- ===================================================================== 
+     - git reset for patchset.
+     ===================================================================== -->
+  <target name="git.reset" description="git pull for patchset.">
+	<basename property="git.package.name" file="${git.project.name}"/>
+	<var name="git.package.path" unset="true"/>
+	<property name="git.package.path" value="${git.server.host}/${git.branch.name}/${git.package.name}"/>
+    <if>
+        <available file="${git.package.path}" type="dir"/>
+        <then>
+		  <echo> git reset : ${git.package.name}:${git.branch.name} </echo>
+		  <git command = "reset" dir = "${git.package.path}" >
+	        <args>
+			  <arg value = "--hard" />
+	          <arg value = "origin/${git.branch.name}" />
+	        </args>
+          </git> 
+        </then>
+        <else>
+		  <fail message="Git Reset Error : ${git.package.name} is not exist."  unless="true"/>       
+        </else>
+    </if>
+  </target>
+
+ <!-- ===================================================================== 
+     - git reset for patchset.
+     ===================================================================== -->
+  <target name="git.push.version.up" description="git pull for patchset.">
+	<basename property="git.package.name" file="${git.project.name}"/>
+	<var name="git.package.path" unset="true"/>
+	<property name="git.package.path" value="${git.server.host}/${git.branch.name}/${git.package.name}"/>
+    <if>
+        <available file="${git.package.path}" type="dir"/>
+        <then>
+		  <echo> git push to version up :${git.package.name}:${git.branch.name}:${git.version.no} : ${git.server.url} </echo>
+		  <!--
+		  <scp file="${gerrit.user.name}@${gerrit.host}:hooks/commit-msg"
+	        todir="${git.package.name}/.git/hooks/"
+	        port="${gerrit.port}"
+	        keyfile="${user.home}/${gerrit.keyfile.path}"
+          /> -->
+		 <exec executable = "scp" dir = "${git.package.path}" failonerror = "true">
+           <arg value = "-p" />
+           <arg value = "-P" />
+           <arg value = "${gerrit.port}" />		   
+		   <arg value = "${gerrit.user.name}@${gerrit.host}:hooks/commit-msg" />
+		   <arg value = ".git/hooks/" />
+          </exec>
+		  <git command = "add" dir = "${git.package.path}" >
+	        <args>
+			  <arg value = "package/changelog" />
+	          <arg value = "package/pkginfo.manifest" />
+	        </args>
+          </git>
+		  
+		  <git command = "commit" dir = "${git.package.path}" >
+	        <args>
+			  <arg value = "-s" />
+	          <arg value = "-m" />
+			  <arg value = "MISC: package version up(${git.version.no})" />
+	        </args>
+          </git>
+		  
+		  <git command = "push" dir = "${git.package.path}" >
+	        <args>
+			  <arg value = "origin" />
+	          <arg value = "HEAD:refs/for/${git.branch.name}${gerrit.reviewer.list}" />
+	        </args>
+          </git>
+		  
+        </then>
+        <else>
+		  <fail message="Git PUSH Error : ${git.package.name} is not exist."  unless="true"/>       
+        </else>
+    </if>
+  </target>
+
+ <!-- ===================================================================== 
+     - git reset for patchset.
+     ===================================================================== -->
+  <target name="set.changeId.win" description="git pull for patchset.">
+    <echo>set.changeId.win : ${git.package.name}</echo>
+	<exec executable = "C:\Program Files (x86)\Git\bin\scp" dir = "${git.package.name}" failonerror = "true">
+      <arg value = "-p" />
+	  <arg value = "-P" />
+	  <arg value = "${git.server.port}" />
+	  <arg value = "${git.server.url}hooks/commit-msg" />
+	  <arg value = ".git/hooks/" />
+    </exec>	
+  </target>  
+
+ <!-- ===================================================================== 
+     - git reset for patchset.
+     ===================================================================== -->
+  <target name="set.changeId.ubuntu" description="git pull for patchset.">
+	<exec executable = "scp" dir = "${git.package.name}" failonerror = "true">
+      <arg value = "-p" />
+	  <arg value = "-P" />
+	  <arg value = "${git.server.port}" />
+	  <arg value = "${git.server.url}hooks/commit-msg" />
+	  <arg value = ".git/hooks/" />
+    </exec>
+  </target> 
+  
+</project>
