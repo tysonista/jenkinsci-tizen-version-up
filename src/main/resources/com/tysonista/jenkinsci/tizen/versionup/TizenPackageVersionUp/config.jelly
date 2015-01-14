@@ -14,18 +14,18 @@
     <f:textbox/>
   </f:entry>
   <f:entry title="Git Port" field="gitPort">
-    <f:expandableTextbox/>
+    <f:textbox/>
   </f:entry>
   <f:entry title="Git Path" field="gitPath">
-    <f:expandableTextbox/>
+    <f:textbox/>
   </f:entry>
   <f:entry title="Git Branch" field="gitBranch">
-    <f:expandableTextbox/>
+    <f:textbox/>
   </f:entry>
   <f:entry title="Change Log" field="changeLog">
     <f:textarea/>
   </f:entry>
   <f:entry title="Package Version Rule" field="packageVersionRule">
-    <f:expandableTextbox/>
+    <f:textbox/>
   </f:entry>
 </j:jelly>
