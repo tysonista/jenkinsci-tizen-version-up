@@ -13,7 +13,6 @@ import hudson.util.FormValidation;
 import hudson.util.VariableResolver;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -23,6 +22,8 @@ import javax.servlet.ServletException;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+
+import com.tysonista.jenkinsci.tizen.common.Constants;
 
 /**
  * Tizen package version up {@link Builder}.
@@ -68,8 +69,7 @@ public class TizenPackageVersionUp extends Builder {
         // Since this is a dummy, we just say 'hello world' and call that a build.
 
         // This also shows how you can consult the global configuration of the builder
-        String buildXmlDirPath = "/home/wac/jenkins/plugins/tizen-package-version-up/";
-        String buildXmlFilePath = buildXmlDirPath+"ant-version-temp.xml";
+        String buildXmlFilePath = Constants.pluginPath+"ant-version-temp.xml";
 
         ArgumentListBuilder args = new ArgumentListBuilder();
         args.add("ant");
@@ -103,7 +103,7 @@ public class TizenPackageVersionUp extends Builder {
             args = new ArgumentListBuilder(newArgs.toArray(new String[newArgs.size()]));
         }
         try {
-            int r = launcher.launch().cmds(args).stdout(listener.getLogger()).envs(env).pwd(buildXmlDirPath).join();
+            int r = launcher.launch().cmds(args).stdout(listener.getLogger()).envs(env).pwd(Constants.pluginPath).join();
             return r==0;
         } catch (IOException e) {
             Util.displayIOException(e,listener);
@@ -111,11 +111,6 @@ public class TizenPackageVersionUp extends Builder {
             return false;
         }
     }
-
-    private void print(PrintStream printStream, String msg) {
-        printStream.println(msg);
-    }
-
 
     public String getPackageVersionRule() {
         return packageVersionRule;

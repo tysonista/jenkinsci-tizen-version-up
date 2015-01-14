@@ -1,4 +1,4 @@
-package com.tysonista.tizencommitlog;
+package com.tysonista.jenkinsci.tizen.commitlog;
 
 import hudson.model.ParameterValue;
 

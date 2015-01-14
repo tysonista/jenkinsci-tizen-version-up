@@ -52,7 +52,7 @@
         }
     </script>
     <f:validateButton
-        method="descriptor/com.tysonista.tizencommitlog.TizenGitParameterDefinition/test?url='+getSelectedText(&quot;url&quot;)+'&amp;port='+getSelectedText(&quot;port&quot;)+'&amp;path='+getSelectedText(&quot;path&quot;)+'&amp;branch='+getSelectedText(&quot;branch&quot;)+'"
+        method="descriptor/com.tysonista.jenkinsci.tizen.commitlog.TizenGitParameterDefinition/test?url='+getSelectedText(&quot;url&quot;)+'&amp;port='+getSelectedText(&quot;port&quot;)+'&amp;path='+getSelectedText(&quot;path&quot;)+'&amp;branch='+getSelectedText(&quot;branch&quot;)+'"
         title="${%Get Commit Logs}"
         progress="${%Checking...}"
     />
