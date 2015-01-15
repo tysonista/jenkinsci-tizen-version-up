@@ -1,20 +1,14 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-    <f:entry title="${%Name}" field="name" description="${%defaultName}">
-        <f:textbox field="name" default="commit logs"/>
-    </f:entry>
-    <f:entry title="${%Git Url}" field="gitUrl">
+    <f:entry title="${%Git Url}" field="gitUrl" name="gitUrl">
         <f:textarea/>
     </f:entry>
-    <f:entry title="${%Git Port}" field="gitPort">
+    <f:entry title="${%Git Port}" field="gitPort" name="gitPort">
         <f:textarea/>
     </f:entry>
-    <f:entry title="${%Git Path}" field="gitPath">
+    <f:entry title="${%Git Path}" field="gitPath" name="gitPath">
         <f:textarea/>
     </f:entry>
-    <f:entry title="${%Git Branch}" field="gitBranch">
+    <f:entry title="${%Git Branch}" field="gitBranch" name="gitBranch">
         <f:textarea/>
-    </f:entry>
-    <f:entry title="${%Description}" field="description">
-        <f:textarea field="description" />
     </f:entry>
 </j:jelly>

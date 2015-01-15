@@ -115,7 +115,9 @@
      - set parameter for build and packaging.
      ===================================================================== --> 
   <target name="create.commit.log.data" depends="build.set.parameter" description="execute reverse build.">
-    <echo> Create Commit Log - ${version.project.name} : ${version.package.name} : ${version.branch.name} </echo>
+    <echo> BASE DIR - ${basedir}</echo>
+	<echo> Create Commit Log - ${version.project.name} : ${version.package.name} : ${version.branch.name} </echo>
+	
 	<delete file="commit-data" /> 
     <!-- git clone -->
     <antcall target="ant-git.git.clone">
@@ -124,7 +126,8 @@
 	</antcall>
 	
 	<!-- Get Current Version Up Info -->
-	<get.version.no path="${version.package.path}/package/pkginfo.manifest" />
+	<echo> TTT : ${version.package.path}/package/pkginfo.manifest </echo>
+	<get.version.no path="${basedir}/${version.package.path}/package/pkginfo.manifest" />
 	<echo> Current Version Info - ${package.version.no} </echo>
 		
     <!-- Get chagne logs to ago time.-->
@@ -187,7 +190,7 @@
 		</antcall>
 		
 		<!-- Get Current Version Up Info -->
-		<get.version.no path="${version.package.path}/package/pkginfo.manifest" />
+		<get.version.no path="${basedir}/${version.package.path}/package/pkginfo.manifest" />
 		<echo> Current Version Info - ${package.version.no} : ${package.version.line} </echo>
 		
 		<!-- Set Change Version Up Info -->
@@ -267,7 +270,7 @@
 		</antcall>
 		
 		<!-- Get Current Version Up Info -->
-		<get.version.no path="${version.package.path}/package/pkginfo.manifest" />
+		<get.version.no path="${basedir}/${version.package.path}/package/pkginfo.manifest" />
 		<echo> Current Version Info - ${package.version.no} : ${package.version.line} </echo>
 		
 		<!-- Set Change Version Up Info -->
@@ -364,16 +367,9 @@
   </target> 
 
   <target name="test"  description="execute reverse build.">
-  	 
-	<echo> TTT : ${version.change.data} </echo>
-	<for list="${version.change.data}" param="change.log" delimiter="${line.separator}">
-			<sequential>
-			  <echo> CCC - @{change.log}--- </echo>
-			  <string.trim str.data="@{change.log}" />
-			  <echo> AAA - ${version.change.log.trim}---- </echo>
-			</sequential>
-	</for>
-   
+  	 <get.version.no path="${basedir}/172.21.111.140/master/common-eplugin/package/pkginfo.manifest" />
+	 <property environment="env" />
+	 <echo> Current Version Info - ${package.version.no} : ${env.ANT_HOME}  : ${user.dir}</echo>
   </target>
   
   <scriptdef name="string.trim" language="javascript">     
@@ -497,8 +493,11 @@
        
     var isDependency = 'false';
     var pkgManifest = attributes.get('path');
-    var file = new File(pkgManifest);
-    fr = new FileReader(file);
+	echo = project.createTask("echo");
+	echo.setMessage("FILE PAHT : " + pkgManifest);
+	echo.perform();
+    var file = new File(pkgManifest);	
+    fr = new FileReader(file);	
     br = new BufferedReader(fr);  
     var versionNo = null;
 	var versionLine = null;

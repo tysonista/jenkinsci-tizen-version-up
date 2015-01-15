@@ -183,7 +183,7 @@
 	  <param name="gerrit.verified.value" value="${verified.value}" />
 	  <param name="gerrit.project.name" value="${project.name}" />
 	</antcall>
-	<get.change.number.to.verified.patchset patch.verify.infos="patch.verify.infos" />
+	<get.change.number.to.verified.patchset patch.verify.infos="${basedir}/patch.verify.infos" />
 	<var name="gerrit.change.number.list" unset="true" />
 	<var name="gerrit.change.number.list" value="${change.number.list.to.verified.patchset}" />	
 	<echo> Gerrit Change Number List : ${gerrit.change.number.list}</echo>
@@ -198,7 +198,7 @@
 	</antcall>
 	
 	
-	<get.patchset.infos patchset.json="patchset.json" />
+	<get.patchset.infos patchset.json="${basedir}/patchset.json" />
 	<var name="patchset.refs.info" unset="true" />
 	<var name="patchset.refs.info" value="${gerrit.refspec.number}" />	
 	<var name="patchset.junit.list.info" unset="true" />
@@ -337,7 +337,7 @@
 	  <param name="gerrit.search.message" value="${version.no}"/>
 	</antcall>
 	
-	<get.version.lastUpdate.info patchset.json="patch.version.infos" />		
+	<get.version.lastUpdate.info patchset.json="${basedir}/patch.version.infos" />		
 	<var name="patchset.lastUpdate.info" value="${gerrit.lastUpdate.info}" />
 	<var name="patchset.commit.message.title.info" value="${gerrit.commit.message.info}" />
 	
@@ -374,7 +374,7 @@
 	  <param name="gerrit.search.message" value="${version.no}"/>
 	</antcall>
 	
-	<check.version.status.open.info patchset.json="patch.version.open.status" />		
+	<check.version.status.open.info patchset.json="${basedir}/patch.version.open.status" />		
 	<var name="patchset.check.version.open.info" value="${gerrit.check.open.status}" />
 		
 	<if>
@@ -395,7 +395,7 @@
 	  <param name="gerrit.ago.time" value="${ago.time}m"/>
 	</antcall>	
 	
-	<get.change.log.info patchset.json="patch.change.infos" last.commit.message="${last.commit.message}" />
+	<get.change.log.info patchset.json="${basedir}/patch.change.infos" last.commit.message="${last.commit.message}" />
 	<var name="patchset.change.data.infos" value="${gerrit.change.log.arr}" />
 	
   </target>

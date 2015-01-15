@@ -276,7 +276,7 @@
           <echo> dibs local tools not exist. : install start </echo>
 		  <mkdir dir="${dibs.download}" />	
 		  <get src="${dibs.pkg.url}/${dibs.pkg.list.name}" dest="${dibs.download}/${dibs.pkg.list.name}" />    
-		  <pkgname.and.platform.list pkg.list.info="${dibs.download}/${dibs.pkg.list.name}" download.package.name="dibs"/>    
+		  <pkgname.and.platform.list pkg.list.info="${basedir}/${dibs.download}/${dibs.pkg.list.name}" download.package.name="dibs"/>    
 		  <get src="${dibs.pkg.url}${downloadUrl}" dest="${dibs.download}/${file}" />
 		
 		  <unzip dest="${dibs.download}">
@@ -306,7 +306,7 @@
 	
 	<for list="${dibs.pre.local.package}" param="fileName" delimiter=",">
         <sequential>
-		  <pkgname.and.platform.list pkg.list.info="${dibs.download}/${dibs.pkg.list.name}" download.package.name="@{fileName}"/>          
+		  <pkgname.and.platform.list pkg.list.info="${basedir}/${dibs.download}/${dibs.pkg.list.name}" download.package.name="@{fileName}"/>          
 		  <var name = "local.package.name" unset="true" />		 
 		  <fileset dir="${dibs.local.package}" id="fileId" >
             <include name="@{fileName}*.zip"/>
@@ -657,7 +657,7 @@
             <antcall target="ant-git.git.clone">
 			  <param name="git.project.name" value="${search.project.name}"/>
 			</antcall>			
-			<get.search.dependency path="${search.package.name}/package/pkginfo.manifest" />				
+			<get.search.dependency path="${basedir}/${search.package.name}/package/pkginfo.manifest" />				
 			<var name="is.first.dependency.search" unset="true"/>
 			<property name="is.first.dependency.search" value="false"/>		
 		  </then>
@@ -672,7 +672,7 @@
 			    <antcall target="ant-git.git.clone">
 				  <param name="git.project.name" value="${search.project.name}"/>			
 				</antcall>
-				<get.search.dependency path="@{path}/package/pkginfo.manifest" />			
+				<get.search.dependency path="${basedir}/@{path}/package/pkginfo.manifest" />			
 			  </sequential>
 			</for>
 		  </then>
@@ -713,7 +713,7 @@
 	    <var name="dir.package.name" unset="true" />
 	    <basename property="dir.package.name" file="@{dir}"/>	
 		
-		<check.reverse.dependency path="${dir.package.name}/package/pkginfo.manifest" check.package.name="${reverse.package.name}" />	
+		<check.reverse.dependency path="${basedir}/${dir.package.name}/package/pkginfo.manifest" check.package.name="${reverse.package.name}" />	
         <echo> Reverse Build Package [${reverse.package.name}] - ${dir.package.name} : ${is.reverse.dependency}</echo>		
 		<if>
           <equals arg1="${is.reverse.dependency}" arg2="true" />

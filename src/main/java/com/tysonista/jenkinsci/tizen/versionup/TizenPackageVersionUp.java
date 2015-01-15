@@ -66,11 +66,20 @@ public class TizenPackageVersionUp extends Builder {
     @Override
     public boolean perform(AbstractBuild<?,?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         // This is where you 'build' the project.
-        // Since this is a dummy, we just say 'hello world' and call that a build.
+        return antCall(gitUrl, gitPort, gitPath, gitBranch, changeLog, packageVersionRule, build, launcher, listener);
+    }
 
-        // This also shows how you can consult the global configuration of the builder
-        String buildXmlFilePath = Constants.pluginPath+"ant-version-temp.xml";
+    private boolean antCall(String gitUrl,
+                            String gitPort,
+                            String gitPath,
+                            String gitBranch,
+                            String changeLog,
+                            String packageVersionRule,
+                            AbstractBuild<?, ?> build,
+                            Launcher launcher,
+                            BuildListener listener) throws IOException, InterruptedException {
 
+        String buildXmlFilePath = Constants.pluginPath+"ant-version.xml";
         ArgumentListBuilder args = new ArgumentListBuilder();
         args.add("ant");
         if (buildXmlFilePath!=null) {
@@ -82,26 +91,26 @@ public class TizenPackageVersionUp extends Builder {
 
         VariableResolver<String> vr = new VariableResolver.ByMap<String>(env);
         Set<String> sensitiveVars = build.getSensitiveBuildVariables();
-
         StringBuilder properties = new StringBuilder();
         properties.append("GIT_SERVER_URL=").append(gitUrl).append("\n")
                     .append("GIT_SERVER_PORT=").append(gitPort).append("\n")
                     .append("GIT_PROJECT_NAME=").append(gitPath).append("\n")
                     .append("GIT_BRANCH_NAME=").append(gitBranch).append("\n")
                     .append("PACKAGE_VERSION_RULE=").append(packageVersionRule).append("\n")
+                    .append("WORKSPACE=").append("${WORKSPACE}").append("\n")
                     .append("CHANGE_DATA=").append(changeLog);
 
         args.addKeyValuePairsFromPropertyString("-D", properties.toString(), vr, sensitiveVars);
 
-        if(!launcher.isUnix()) {
-            args = args.toWindowsCommand();
-            // For some reason, ant on windows rejects empty parameters but unix does not.
-            // Add quotes for any empty parameter values:
-            List<String> newArgs = new ArrayList<String>(args.toList());
-            newArgs.set(newArgs.size() - 1, newArgs.get(newArgs.size() - 1).replaceAll(
-                    "(?<= )(-D[^\" ]+)= ", "$1=\"\" "));
-            args = new ArgumentListBuilder(newArgs.toArray(new String[newArgs.size()]));
-        }
+//        if(!launcher.isUnix()) {
+//            args = args.toWindowsCommand();
+//            // For some reason, ant on windows rejects empty parameters but unix does not.
+//            // Add quotes for any empty parameter values:
+//            List<String> newArgs = new ArrayList<String>(args.toList());
+//            newArgs.set(newArgs.size() - 1, newArgs.get(newArgs.size() - 1).replaceAll(
+//                    "(?<= )(-D[^\" ]+)= ", "$1=\"\" "));
+//            args = new ArgumentListBuilder(newArgs.toArray(new String[newArgs.size()]));
+//        }
         try {
             int r = launcher.launch().cmds(args).stdout(listener.getLogger()).envs(env).pwd(Constants.pluginPath).join();
             return r==0;

@@ -2,7 +2,8 @@ package com.tysonista.jenkinsci.tizen.commitlog;
 
 import hudson.Extension;
 import hudson.model.ParameterValue;
-import hudson.model.ParameterDefinition;
+import hudson.model.StringParameterDefinition;
+import hudson.model.StringParameterValue;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 
@@ -13,6 +14,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.List;
 
 import net.sf.json.JSONObject;
@@ -23,7 +25,7 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import com.tysonista.jenkinsci.tizen.common.Constants;
 
-public class TizenGitParameterDefinition extends ParameterDefinition {
+public class TizenGitParameterDefinition extends StringParameterDefinition {
 
     public final String gitUrl;
     public final String gitPort;
@@ -31,8 +33,8 @@ public class TizenGitParameterDefinition extends ParameterDefinition {
     public final String gitBranch;
 
     @DataBoundConstructor
-    public TizenGitParameterDefinition(String name, String description, String gitUrl, String gitPort, String gitPath, String gitBranch) {
-        super(name, description);
+    public TizenGitParameterDefinition(String gitUrl, String gitPort, String gitPath, String gitBranch) {
+        super("Tizen Commit Logs", "");
         this.gitUrl=gitUrl;
         this.gitPort=gitPort;
         this.gitPath=gitPath;
@@ -68,18 +70,6 @@ public class TizenGitParameterDefinition extends ParameterDefinition {
      */
     private static final long serialVersionUID = -730014143015177976L;
 
-    @Override
-    public ParameterValue createValue(StaplerRequest arg0) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public ParameterValue createValue(StaplerRequest arg0, JSONObject arg1) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
     @Extension
     public static class DescriptorImpl extends ParameterDescriptor {
         @Override
@@ -98,10 +88,6 @@ public class TizenGitParameterDefinition extends ParameterDefinition {
             } catch (InterruptedException e) {
                 return FormValidation.error(e, e.getLocalizedMessage());
             }
-//            return FormValidation.ok("gitUrl:"+url+
-//                    ", gitPort:"+port+
-//                    ", gitPath:"+path+
-//                    ", gitBranch:"+branch);
         }
         public FormValidation antCall(String url, String port, String path, String branch) throws IOException, InterruptedException {
             // This also shows how you can consult the global configuration of the builder
@@ -136,10 +122,9 @@ public class TizenGitParameterDefinition extends ParameterDefinition {
             } else {
                 String commitData = getCommitData();
                 StringBuilder sb = new StringBuilder();
-                sb.append("[Commit Logs]")
-                .append("=======================")
+                sb.append("[Commit Logs]\n")
                 .append(commitData)
-                .append("=======================");
+                .append("\n[END]\n"+logs);
 
                 return FormValidation.ok(sb.toString());
             }
@@ -147,6 +132,7 @@ public class TizenGitParameterDefinition extends ParameterDefinition {
         private String getCommitData() throws IOException {
             FileInputStream fis = null;
             try {
+                //TODO: change to workspace
                 fis = new FileInputStream(Constants.pluginPath+"commit-data");
                 String commitData = getString(fis);
                 return commitData;
@@ -172,5 +158,26 @@ public class TizenGitParameterDefinition extends ParameterDefinition {
                 }
             }
         }
+    }
+
+    @Override
+    public StringParameterValue getDefaultParameterValue() {
+        // TODO Auto-generated method stub
+        return super.getDefaultParameterValue();
+    }
+
+    @Override
+    public ParameterValue createValue(StaplerRequest req, JSONObject jo) {
+        String url = req.getParameter("gitUrl");
+        String port = req.getParameter("gitPort");
+        String path = req.getParameter("gitPath");
+        String branch = req.getParameter("gitBranch");
+        return new TizenGitParameterValue(getName(), getDefaultValue(), url, port, path, branch);
+    }
+
+    @Override
+    public ParameterValue createValue(String value) {
+        // TODO Auto-generated method stub
+        return super.createValue(value);
     }
 }

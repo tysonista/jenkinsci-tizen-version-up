@@ -5,40 +5,40 @@
 
     <f:entry title="${%Git Url}">
         <div name="parameter">
-            <input type="hidden" name="Git_Url" value="${%Git Url}" />
-            <select name="value" id="url">
+            <input type="hidden" name="name" value="${it.name}" />
+            <select name="gitUrl" id="url">
               <j:forEach var="value" items="${it.gitUrls}">
-                <f:option selected="${it.value==value}">${value}</f:option>
+                <f:option selected="gitUrl==value">${value}</f:option>
               </j:forEach>
             </select>
         </div>
     </f:entry>
     <f:entry title="${%Git Port}" field="port">
         <div name="parameter">
-            <input type="hidden" name="Git_Port" value="${%Git Port}" />
-            <select name="value" id="port">
+            <input type="hidden" name="name" value="${it.name}" />
+            <select name="gitPort" id="port">
               <j:forEach var="value" items="${it.gitPorts}">
-                <f:option selected="${it.value==value}">${value}</f:option>
+                <f:option selected="gitPort==value">${value}</f:option>
               </j:forEach>
             </select>
         </div>
     </f:entry>
     <f:entry title="${%Git Path}" field="path">
         <div name="parameter">
-            <input type="hidden" name="Git_Path" value="${%Git Path}" />
-            <select name="value" id="path">
+            <input type="hidden" name="name" value="${it.name}" />
+            <select name="gitPath" id="path">
               <j:forEach var="value" items="${it.gitPaths}">
-                <f:option selected="${it.value==value}">${value}</f:option>
+                <f:option selected="gitPath==value">${value}</f:option>
               </j:forEach>
             </select>
         </div>
     </f:entry>
     <f:entry title="${%Git Branch}" field="branch">
         <div name="parameter">
-            <input type="hidden" name="Git_Branch" value="${%Git Branch}" />
-            <select name="value" id="branch">
+            <input type="hidden" name="name" value="${it.name}" />
+            <select name="gitBranch" id="branch">
               <j:forEach var="value" items="${it.gitBranchs}">
-                <f:option selected="${it.value==value}">${value}</f:option>
+                <f:option selected="gitBranch==value">${value}</f:option>
               </j:forEach>
             </select>
         </div>
