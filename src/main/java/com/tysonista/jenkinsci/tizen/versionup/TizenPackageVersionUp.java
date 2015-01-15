@@ -97,11 +97,10 @@ public class TizenPackageVersionUp extends Builder {
                     .append("GIT_PROJECT_NAME=").append(gitPath).append("\n")
                     .append("GIT_BRANCH_NAME=").append(gitBranch).append("\n")
                     .append("PACKAGE_VERSION_RULE=").append(packageVersionRule).append("\n")
-                    .append("WORKSPACE=").append("${WORKSPACE}").append("\n")
-                    .append("CHANGE_DATA=").append(changeLog);
-
+                    .append("WORKSPACE=").append("${WORKSPACE}");
+                    
         args.addKeyValuePairsFromPropertyString("-D", properties.toString(), vr, sensitiveVars);
-
+        args.add("-DCHANGE_DATA="+env.get("ChangeLog"));
 //        if(!launcher.isUnix()) {
 //            args = args.toWindowsCommand();
 //            // For some reason, ant on windows rejects empty parameters but unix does not.
