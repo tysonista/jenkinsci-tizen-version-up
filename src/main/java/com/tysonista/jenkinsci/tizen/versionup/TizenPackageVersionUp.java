@@ -9,18 +9,12 @@ import hudson.model.AbstractProject;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
-import hudson.util.FormValidation;
 import hudson.util.VariableResolver;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
-import javax.servlet.ServletException;
-
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import com.tysonista.jenkinsci.tizen.common.Constants;
@@ -51,22 +45,24 @@ public class TizenPackageVersionUp extends Builder {
     private String gitPath;
     private String gitBranch;
     private String changeLog;
+    private String singleId;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public TizenPackageVersionUp(String gitUrl, String gitPort, String gitPath, String gitBranch, String changeLog, String packageVersionRule) {
+    public TizenPackageVersionUp(String gitUrl, String gitPort, String gitPath, String gitBranch, String changeLog, String packageVersionRule, String singleId) {
         this.gitUrl = gitUrl;
         this.gitPort = gitPort;
         this.gitPath = gitPath;
         this.gitBranch = gitBranch;
         this.changeLog = changeLog;
         this.packageVersionRule = packageVersionRule;
+        this.singleId = singleId;
     }
 
     @Override
     public boolean perform(AbstractBuild<?,?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         // This is where you 'build' the project.
-        return antCall(gitUrl, gitPort, gitPath, gitBranch, changeLog, packageVersionRule, build, launcher, listener);
+        return antCall(gitUrl, gitPort, gitPath, gitBranch, changeLog, packageVersionRule, singleId, build, launcher, listener);
     }
 
     private boolean antCall(String gitUrl,
@@ -75,6 +71,7 @@ public class TizenPackageVersionUp extends Builder {
                             String gitBranch,
                             String changeLog,
                             String packageVersionRule,
+                            String singleId,
                             AbstractBuild<?, ?> build,
                             Launcher launcher,
                             BuildListener listener) throws IOException, InterruptedException {
@@ -97,6 +94,7 @@ public class TizenPackageVersionUp extends Builder {
                     .append("GIT_PROJECT_NAME=").append(gitPath).append("\n")
                     .append("GIT_BRANCH_NAME=").append(gitBranch).append("\n")
                     .append("PACKAGE_VERSION_RULE=").append(packageVersionRule).append("\n")
+                    .append("SINGLE_ID=").append(singleId).append("\n")
                     .append("WORKSPACE=").append("${WORKSPACE}");
                     
         args.addKeyValuePairsFromPropertyString("-D", properties.toString(), vr, sensitiveVars);
@@ -118,6 +116,14 @@ public class TizenPackageVersionUp extends Builder {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public String getSingleId() {
+        return singleId;
+    }
+
+    public void setSingleId(String singleId) {
+        this.singleId = singleId;
     }
 
     public String getPackageVersionRule() {
@@ -184,27 +190,6 @@ public class TizenPackageVersionUp extends Builder {
          */
         public DescriptorImpl() {
             load();
-        }
-
-        /**
-         * Performs on-the-fly validation of the form field 'gitBranch'.
-         *
-         * @param value
-         *      This parameter receives the value that the user has typed.
-         * @return
-         *      Indicates the outcome of the validation. This is sent to the browser.
-         *      <p>
-         *      Note that returning {@link FormValidation#error(String)} does not
-         *      prevent the form from being saved. It just means that a message
-         *      will be displayed to the user. 
-         */
-        public FormValidation doCheckGitUrl(@QueryParameter String gitUrl)
-                throws IOException, ServletException {
-            if (gitUrl.length() == 0)
-                return FormValidation.error("Please set a name");
-            if (gitUrl.length() < 4)
-                return FormValidation.warning("Isn't the name too short?");
-            return FormValidation.ok();
         }
 
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {

@@ -1,9 +1,9 @@
 package com.tysonista.jenkinsci.tizen.commitlog;
 
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.model.ParameterValue;
 import hudson.model.StringParameterDefinition;
-import hudson.model.StringParameterValue;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 
@@ -14,9 +14,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.List;
 
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -33,8 +33,8 @@ public class TizenGitParameterDefinition extends StringParameterDefinition {
     public final String gitBranch;
 
     @DataBoundConstructor
-    public TizenGitParameterDefinition(String gitUrl, String gitPort, String gitPath, String gitBranch) {
-        super("Tizen Commit Logs", "");
+    public TizenGitParameterDefinition(String name, String gitUrl, String gitPort, String gitPath, String gitBranch) {
+        super(name, "Jenkins Job Name");
         this.gitUrl=gitUrl;
         this.gitPort=gitPort;
         this.gitPath=gitPath;
@@ -77,34 +77,36 @@ public class TizenGitParameterDefinition extends StringParameterDefinition {
             return "Tizen Commit Logs";
         }
         public FormValidation doTest(
+                @QueryParameter("jobName") String jobName,
                 @QueryParameter("url") String url,
                 @QueryParameter("port") String port,
                 @QueryParameter("path") String path,
                 @QueryParameter("branch") String branch) {
             try {
-                return antCall(url, port, path, branch);
+                return antCall(url, port, path, branch, jobName);
             } catch (IOException e) {
                 return FormValidation.error(e, e.getLocalizedMessage());
             } catch (InterruptedException e) {
                 return FormValidation.error(e, e.getLocalizedMessage());
             }
         }
-        public FormValidation antCall(String url, String port, String path, String branch) throws IOException, InterruptedException {
+        public FormValidation antCall(String url, String port, String path, String branch, String jobName) throws IOException, InterruptedException {
             // This also shows how you can consult the global configuration of the builder
             String buildXmlFilePath = Constants.pluginPath+"ant-version.xml";
-
             ArgumentListBuilder args = new ArgumentListBuilder();
             args.add("ant");
             if (buildXmlFilePath!=null) {
                 args.add("-file", buildXmlFilePath);
             }
+            String workspace = getWorkspace(jobName);
 
             StringBuilder properties = new StringBuilder();
             properties.append("GIT_SERVER_URL=").append(url).append("\n")
                                                 .append("GIT_SERVER_PORT=").append(port).append("\n")
                                                 .append("GIT_PROJECT_NAME=").append(path).append("\n")
-                                                .append("GIT_BRANCH_NAME=").append(branch).append("\n");
-            args.addKeyValuePairsFromPropertyString("-D", properties.toString(), null, null);
+                                                .append("GIT_BRANCH_NAME=").append(branch).append("\n")
+                                                .append("WORKSPACE=").append(workspace).append("\n");
+            args.addKeyValuePairsFromPropertyString("-D", properties.toString(), null);
 
             List<String> newArgs = new ArrayList<String>(args.toList());
             newArgs.set(newArgs.size() - 1, newArgs.get(newArgs.size() - 1).replaceAll("(?<= )(-D[^\" ]+)= ", "$1=\"\" "));
@@ -120,20 +122,27 @@ public class TizenGitParameterDefinition extends StringParameterDefinition {
                 String errs = getString(process.getErrorStream());
                 return FormValidation.error("ant build failed("+ exitValue+")\n"+logs+"\n"+errs);
             } else {
-                String commitData = getCommitData();
+                String commitData = getCommitData(workspace);
                 StringBuilder sb = new StringBuilder();
                 sb.append("[Commit Logs]\n")
                 .append(commitData)
-                .append("\n[END]\n"+logs);
+                .append("\n[END]\n");
 
                 return FormValidation.ok(sb.toString());
             }
         }
-        private String getCommitData() throws IOException {
+
+        private String getWorkspace(String jobName) {
+            Jenkins jenkins = Jenkins.getInstance();
+            FilePath workspace = jenkins.getWorkspaceFor(jenkins.getItem(jobName));
+            return workspace.getRemote();
+        }
+
+        private String getCommitData(String workspace) throws IOException {
             FileInputStream fis = null;
             try {
                 //TODO: change to workspace
-                fis = new FileInputStream(Constants.pluginPath+"commit-data");
+                fis = new FileInputStream(workspace+"/commit-data");
                 String commitData = getString(fis);
                 return commitData;
             } finally {
@@ -161,23 +170,11 @@ public class TizenGitParameterDefinition extends StringParameterDefinition {
     }
 
     @Override
-    public StringParameterValue getDefaultParameterValue() {
-        // TODO Auto-generated method stub
-        return super.getDefaultParameterValue();
-    }
-
-    @Override
     public ParameterValue createValue(StaplerRequest req, JSONObject jo) {
         String url = req.getParameter("gitUrl");
         String port = req.getParameter("gitPort");
         String path = req.getParameter("gitPath");
         String branch = req.getParameter("gitBranch");
         return new TizenGitParameterValue(getName(), getDefaultValue(), url, port, path, branch);
-    }
-
-    @Override
-    public ParameterValue createValue(String value) {
-        // TODO Auto-generated method stub
-        return super.createValue(value);
     }
 }

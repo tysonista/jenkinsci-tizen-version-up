@@ -28,4 +28,7 @@
   <f:entry title="Package Version Rule" field="packageVersionRule">
     <f:textbox/>
   </f:entry>
+  <f:entry title="mysingle ID" field="singleId">
+    <f:textbox/>
+  </f:entry>
 </j:jelly>
